@@ -313,7 +313,6 @@ def add_movie_to_collection(collection_id, movie_id):
 
     m = Movie.query.get_or_404(movie_id)
 
-    # default колекциите са взаимоизключващи
     if c.is_default:
         other_defaults = Collection.query.filter_by(user_id=current_user.id, is_default=True).all()
         for od in other_defaults:
@@ -408,7 +407,6 @@ def register():
         user = User(
             username=username,
             email=email,
-            # pbkdf2 => няма да ти крашва със scrypt
             password=generate_password_hash(password, method="pbkdf2:sha256", salt_length=16),
             role="user",
         )
