@@ -1,4 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from __future__ import annotations
+
+from typing import Any, Optional, List
+
+from flask import Flask, render_template, request, redirect, url_for, flash, Response
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -17,13 +21,13 @@ login_manager.init_app(app)
 
 
 @login_manager.user_loader
-def load_user(user_id):
+def load_user(user_id: str) -> Optional[User]:
     return User.query.get(int(user_id))
 
 
 def ensure_default_collections(user_id: int) -> None:
-    defaults = ["To watch", "Watching", "Watched"]
-    existing = Collection.query.filter_by(user_id=user_id, is_default=True).all()
+    defaults: List[str] = ["To watch", "Watching", "Watched"]
+    existing: List[Collection] = Collection.query.filter_by(user_id=user_id, is_default=True).all()
     existing_names = {c.name for c in existing}
 
     created = False
@@ -37,10 +41,10 @@ def ensure_default_collections(user_id: int) -> None:
 
 
 @app.route("/")
-def index():
-    q = request.args.get("q", "").strip()
-    genre = request.args.get("genre", "").strip()
-    director = request.args.get("director", "").strip()
+def index() -> str:
+    q: str = request.args.get("q", "").strip()
+    genre: str = request.args.get("genre", "").strip()
+    director: str = request.args.get("director", "").strip()
 
     query = Movie.query
 
@@ -53,43 +57,48 @@ def index():
     if genre:
         query = query.join(Movie.genres).filter(Genre.name.ilike(f"%{genre}%"))
 
-    movies = query.order_by(Movie.created_at.desc()).all()
+    movies: List[Movie] = query.order_by(Movie.created_at.desc()).all()
     return render_template("index.html", movies=movies, q=q, genre=genre, director=director)
 
 
 @app.route("/movies/<int:movie_id>")
-def movie_detail(movie_id):
-    movie = Movie.query.get_or_404(movie_id)
+def movie_detail(movie_id: int) -> str:
+    movie: Movie = Movie.query.get_or_404(movie_id)
     ratings = [r.rating for r in movie.reviews]
-    avg = round(sum(ratings) / len(ratings), 2) if ratings else None
+    avg: Optional[float] = round(sum(ratings) / len(ratings), 2) if ratings else None
 
-    user_collections = []
+    user_collections: List[Collection] = []
     if current_user.is_authenticated:
-        ensure_default_collections(current_user.id)
+        ensure_default_collections(int(current_user.id))
         user_collections = (
             Collection.query
-            .filter_by(user_id=current_user.id)
+            .filter_by(user_id=int(current_user.id))
             .order_by(Collection.is_default.desc(), Collection.name.asc())
             .all()
         )
 
-    return render_template("movie_detail.html", movie=movie, avg=avg, user_collections=user_collections)
+    return render_template(
+        "movie_detail.html",
+        movie=movie,
+        avg=avg,
+        user_collections=user_collections
+    )
 
 
 @app.route("/add-movie", methods=["GET", "POST"])
 @login_required
-def add_movie():
+def add_movie() -> str | Response:
     if getattr(current_user, "role", "user") != "admin":
         flash("Only admin can add movies.")
         return redirect(url_for("index"))
 
     if request.method == "POST":
-        title = request.form.get("title", "").strip()
-        year = request.form.get("year", "").strip()
-        description = request.form.get("description", "").strip()
-        poster_url = request.form.get("poster_url", "").strip()
-        genres_raw = request.form.get("genres", "").strip()
-        director_name = request.form.get("director", "").strip()
+        title: str = request.form.get("title", "").strip()
+        year: str = request.form.get("year", "").strip()
+        description: str = request.form.get("description", "").strip()
+        poster_url: str = request.form.get("poster_url", "").strip()
+        genres_raw: str = request.form.get("genres", "").strip()
+        director_name: str = request.form.get("director", "").strip()
 
         if not title:
             flash("Title is required.")
@@ -103,16 +112,16 @@ def add_movie():
         )
 
         if director_name:
-            d = Director.query.filter_by(name=director_name).first()
+            d: Optional[Director] = Director.query.filter_by(name=director_name).first()
             if not d:
                 d = Director(name=director_name)
             movie.director = d
 
         if genres_raw:
             names = [x.strip() for x in genres_raw.split(",") if x.strip()]
-            genre_objs = []
+            genre_objs: List[Genre] = []
             for name in names:
-                g = Genre.query.filter_by(name=name).first()
+                g: Optional[Genre] = Genre.query.filter_by(name=name).first()
                 if not g:
                     g = Genre(name=name)
                 genre_objs.append(g)
@@ -127,23 +136,27 @@ def add_movie():
 
 @app.route("/movies/<int:movie_id>/review", methods=["POST"])
 @login_required
-def add_review(movie_id):
+def add_review(movie_id: int) -> Response:
     Movie.query.get_or_404(movie_id)
 
-    rating_raw = request.form.get("rating", "").strip()
-    title = request.form.get("title", "").strip()
-    content = request.form.get("content", "").strip()
+    rating_raw: str = request.form.get("rating", "").strip()
+    title: str = request.form.get("title", "").strip()
+    content: str = request.form.get("content", "").strip()
 
     if not rating_raw.isdigit():
         flash("Rating must be 1–5.")
         return redirect(url_for("movie_detail", movie_id=movie_id))
 
-    rating = int(rating_raw)
+    rating: int = int(rating_raw)
     if rating < 1 or rating > 5:
         flash("Rating must be 1–5.")
         return redirect(url_for("movie_detail", movie_id=movie_id))
 
-    existing = Review.query.filter_by(user_id=current_user.id, movie_id=movie_id).first()
+    existing: Optional[Review] = Review.query.filter_by(
+        user_id=int(current_user.id),
+        movie_id=movie_id
+    ).first()
+
     if existing:
         existing.rating = rating
         existing.title = title or None
@@ -155,7 +168,7 @@ def add_review(movie_id):
                 rating=rating,
                 title=title or None,
                 content=content or None,
-                user_id=current_user.id,
+                user_id=int(current_user.id),
                 movie_id=movie_id,
             )
         )
@@ -167,11 +180,11 @@ def add_review(movie_id):
 
 @app.route("/reviews/<int:review_id>/delete", methods=["POST"])
 @login_required
-def delete_review(review_id):
-    review = Review.query.get_or_404(review_id)
+def delete_review(review_id: int) -> Response:
+    review: Review = Review.query.get_or_404(review_id)
 
-    is_owner = review.user_id == current_user.id
-    is_admin = getattr(current_user, "role", "user") == "admin"
+    is_owner: bool = review.user_id == int(current_user.id)
+    is_admin: bool = getattr(current_user, "role", "user") == "admin"
 
     if not (is_owner or is_admin):
         flash("No permission.")
@@ -185,15 +198,19 @@ def delete_review(review_id):
 
 @app.route("/movies/<int:movie_id>/favorite", methods=["POST"])
 @login_required
-def favorite_movie(movie_id):
+def favorite_movie(movie_id: int) -> Response:
     Movie.query.get_or_404(movie_id)
 
-    existing = Favorite.query.filter_by(user_id=current_user.id, movie_id=movie_id).first()
+    existing: Optional[Favorite] = Favorite.query.filter_by(
+        user_id=int(current_user.id),
+        movie_id=movie_id
+    ).first()
+
     if existing:
         flash("Already in favorites.")
         return redirect(url_for("movie_detail", movie_id=movie_id))
 
-    db.session.add(Favorite(user_id=current_user.id, movie_id=movie_id))
+    db.session.add(Favorite(user_id=int(current_user.id), movie_id=movie_id))
     db.session.commit()
     flash("Added to favorites.")
     return redirect(url_for("movie_detail", movie_id=movie_id))
@@ -201,10 +218,14 @@ def favorite_movie(movie_id):
 
 @app.route("/movies/<int:movie_id>/unfavorite", methods=["POST"])
 @login_required
-def unfavorite_movie(movie_id):
+def unfavorite_movie(movie_id: int) -> Response:
     Movie.query.get_or_404(movie_id)
 
-    existing = Favorite.query.filter_by(user_id=current_user.id, movie_id=movie_id).first()
+    existing: Optional[Favorite] = Favorite.query.filter_by(
+        user_id=int(current_user.id),
+        movie_id=movie_id
+    ).first()
+
     if not existing:
         flash("Not in favorites.")
         return redirect(url_for("movie_detail", movie_id=movie_id))
@@ -217,15 +238,26 @@ def unfavorite_movie(movie_id):
 
 @app.route("/profile")
 @login_required
-def profile():
-    ensure_default_collections(current_user.id)
+def profile() -> str:
+    ensure_default_collections(int(current_user.id))
 
-    my_reviews = Review.query.filter_by(user_id=current_user.id).order_by(Review.created_at.desc()).all()
-    my_favorites = Favorite.query.filter_by(user_id=current_user.id).order_by(Favorite.id.desc()).all()
+    my_reviews: List[Review] = (
+        Review.query
+        .filter_by(user_id=int(current_user.id))
+        .order_by(Review.created_at.desc())
+        .all()
+    )
 
-    collections = (
+    my_favorites: List[Favorite] = (
+        Favorite.query
+        .filter_by(user_id=int(current_user.id))
+        .order_by(Favorite.id.desc())
+        .all()
+    )
+
+    collections: List[Collection] = (
         Collection.query
-        .filter_by(user_id=current_user.id)
+        .filter_by(user_id=int(current_user.id))
         .order_by(Collection.is_default.desc(), Collection.name.asc())
         .all()
     )
@@ -240,23 +272,25 @@ def profile():
 
 @app.route("/collections/<int:collection_id>")
 @login_required
-def collection_detail(collection_id):
-    c = Collection.query.get_or_404(collection_id)
-    if c.user_id != current_user.id:
+def collection_detail(collection_id: int) -> str | Response:
+    c: Collection = Collection.query.get_or_404(collection_id)
+
+    if c.user_id != int(current_user.id):
         flash("No access.")
         return redirect(url_for("profile"))
+
     return render_template("collection_detail.html", c=c)
 
 
 @app.route("/collections/create", methods=["POST"])
 @login_required
-def create_collection():
-    name = request.form.get("name", "").strip()
+def create_collection() -> Response:
+    name: str = request.form.get("name", "").strip()
     if not name:
         flash("Name required.")
         return redirect(url_for("profile"))
 
-    db.session.add(Collection(user_id=current_user.id, name=name, is_default=False))
+    db.session.add(Collection(user_id=int(current_user.id), name=name, is_default=False))
     db.session.commit()
     flash("Collection created.")
     return redirect(url_for("profile"))
@@ -264,9 +298,10 @@ def create_collection():
 
 @app.route("/collections/<int:collection_id>/rename", methods=["POST"])
 @login_required
-def rename_collection(collection_id):
-    c = Collection.query.get_or_404(collection_id)
-    if c.user_id != current_user.id:
+def rename_collection(collection_id: int) -> Response:
+    c: Collection = Collection.query.get_or_404(collection_id)
+
+    if c.user_id != int(current_user.id):
         flash("No access.")
         return redirect(url_for("profile"))
 
@@ -274,7 +309,7 @@ def rename_collection(collection_id):
         flash("Default collections cannot be renamed.")
         return redirect(url_for("profile"))
 
-    new_name = request.form.get("name", "").strip()
+    new_name: str = request.form.get("name", "").strip()
     if not new_name:
         flash("Name required.")
         return redirect(url_for("profile"))
@@ -287,9 +322,10 @@ def rename_collection(collection_id):
 
 @app.route("/collections/<int:collection_id>/delete", methods=["POST"])
 @login_required
-def delete_collection(collection_id):
-    c = Collection.query.get_or_404(collection_id)
-    if c.user_id != current_user.id:
+def delete_collection(collection_id: int) -> Response:
+    c: Collection = Collection.query.get_or_404(collection_id)
+
+    if c.user_id != int(current_user.id):
         flash("No access.")
         return redirect(url_for("profile"))
 
@@ -305,16 +341,21 @@ def delete_collection(collection_id):
 
 @app.route("/collections/<int:collection_id>/add/<int:movie_id>", methods=["POST"])
 @login_required
-def add_movie_to_collection(collection_id, movie_id):
-    c = Collection.query.get_or_404(collection_id)
-    if c.user_id != current_user.id:
+def add_movie_to_collection(collection_id: int, movie_id: int) -> Response:
+    c: Collection = Collection.query.get_or_404(collection_id)
+
+    if c.user_id != int(current_user.id):
         flash("No access.")
         return redirect(url_for("profile"))
 
-    m = Movie.query.get_or_404(movie_id)
+    m: Movie = Movie.query.get_or_404(movie_id)
 
     if c.is_default:
-        other_defaults = Collection.query.filter_by(user_id=current_user.id, is_default=True).all()
+        other_defaults: List[Collection] = Collection.query.filter_by(
+            user_id=int(current_user.id),
+            is_default=True
+        ).all()
+
         for od in other_defaults:
             if od.id != c.id and m in od.movies:
                 od.movies.remove(m)
@@ -331,8 +372,8 @@ def add_movie_to_collection(collection_id, movie_id):
 
 @app.route("/movies/<int:movie_id>/add-to-collection", methods=["POST"])
 @login_required
-def add_to_collection_from_movie(movie_id):
-    collection_id = request.form.get("collection_id", "").strip()
+def add_to_collection_from_movie(movie_id: int) -> Response:
+    collection_id: str = request.form.get("collection_id", "").strip()
     if not collection_id.isdigit():
         flash("Invalid collection.")
         return redirect(url_for("movie_detail", movie_id=movie_id))
@@ -342,13 +383,14 @@ def add_to_collection_from_movie(movie_id):
 
 @app.route("/collections/<int:collection_id>/remove/<int:movie_id>", methods=["POST"])
 @login_required
-def remove_movie_from_collection(collection_id, movie_id):
-    c = Collection.query.get_or_404(collection_id)
-    if c.user_id != current_user.id:
+def remove_movie_from_collection(collection_id: int, movie_id: int) -> Response:
+    c: Collection = Collection.query.get_or_404(collection_id)
+
+    if c.user_id != int(current_user.id):
         flash("No access.")
         return redirect(url_for("profile"))
 
-    m = Movie.query.get_or_404(movie_id)
+    m: Movie = Movie.query.get_or_404(movie_id)
 
     if m in c.movies:
         c.movies.remove(m)
@@ -361,28 +403,28 @@ def remove_movie_from_collection(collection_id, movie_id):
 
 
 @app.route("/directors")
-def directors_list():
-    q = request.args.get("q", "").strip()
+def directors_list() -> str:
+    q: str = request.args.get("q", "").strip()
     query = Director.query
     if q:
         query = query.filter(Director.name.ilike(f"%{q}%"))
-    directors = query.order_by(Director.name.asc()).all()
+    directors: List[Director] = query.order_by(Director.name.asc()).all()
     return render_template("directors.html", directors=directors, q=q)
 
 
 @app.route("/directors/<int:director_id>")
-def director_detail(director_id):
-    director = Director.query.get_or_404(director_id)
-    movies = Movie.query.filter_by(director_id=director.id).order_by(Movie.year.desc()).all()
+def director_detail(director_id: int) -> str:
+    director: Director = Director.query.get_or_404(director_id)
+    movies: List[Movie] = Movie.query.filter_by(director_id=director.id).order_by(Movie.year.desc()).all()
     return render_template("director_detail.html", director=director, movies=movies)
 
 
 @app.route("/register", methods=["GET", "POST"])
-def register():
+def register() -> str | Response:
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        email = request.form.get("email", "").strip()
-        password = request.form.get("password", "")
+        username: str = request.form.get("username", "").strip()
+        email: str = request.form.get("email", "").strip()
+        password: str = request.form.get("password", "")
 
         if len(username) < 3:
             flash("Username must be at least 3 chars.")
@@ -422,12 +464,12 @@ def register():
 
 
 @app.route("/login", methods=["GET", "POST"])
-def login():
+def login() -> str | Response:
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
+        username: str = request.form.get("username", "").strip()
+        password: str = request.form.get("password", "")
 
-        user = User.query.filter_by(username=username).first()
+        user: Optional[User] = User.query.filter_by(username=username).first()
         if not user:
             flash("No such user.")
             return redirect(url_for("login"))
@@ -445,7 +487,7 @@ def login():
 
 @app.route("/logout")
 @login_required
-def logout():
+def logout() -> Response:
     logout_user()
     flash("Logged out.")
     return redirect(url_for("index"))

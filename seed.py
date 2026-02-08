@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from typing import Optional, List
+
+from werkzeug.security import generate_password_hash
+
 from app import app
 from model import db, Movie, Genre, Director, User, Review, Favorite, Collection
-from werkzeug.security import generate_password_hash
 
 
 def get_or_create_genre(name: str) -> Genre:
-    g = Genre.query.filter_by(name=name).first()
+    g: Optional[Genre] = Genre.query.filter_by(name=name).first()
     if not g:
         g = Genre(name=name)
         db.session.add(g)
@@ -14,15 +17,15 @@ def get_or_create_genre(name: str) -> Genre:
 
 
 def get_or_create_director(name: str) -> Director:
-    d = Director.query.filter_by(name=name).first()
+    d: Optional[Director] = Director.query.filter_by(name=name).first()
     if not d:
         d = Director(name=name)
         db.session.add(d)
     return d
 
 
-def get_or_create_movie(title: str, year: int | None = None) -> Movie:
-    m = Movie.query.filter_by(title=title, year=year).first()
+def get_or_create_movie(title: str, year: Optional[int] = None) -> Movie:
+    m: Optional[Movie] = Movie.query.filter_by(title=title, year=year).first()
     if not m:
         m = Movie(title=title, year=year)
         db.session.add(m)
@@ -30,7 +33,7 @@ def get_or_create_movie(title: str, year: int | None = None) -> Movie:
 
 
 def get_or_create_user(username: str, email: str, password: str, role: str = "user") -> User:
-    u = User.query.filter_by(username=username).first()
+    u: Optional[User] = User.query.filter_by(username=username).first()
     if not u:
         u = User(
             username=username,
@@ -43,8 +46,8 @@ def get_or_create_user(username: str, email: str, password: str, role: str = "us
 
 
 def ensure_default_collections(user_id: int) -> None:
-    defaults = ["To watch", "Watching", "Watched"]
-    existing = Collection.query.filter_by(user_id=user_id, is_default=True).all()
+    defaults: List[str] = ["To watch", "Watching", "Watched"]
+    existing: List[Collection] = Collection.query.filter_by(user_id=user_id, is_default=True).all()
     existing_names = {c.name for c in existing}
 
     created = False
@@ -58,15 +61,35 @@ def ensure_default_collections(user_id: int) -> None:
 
 
 def get_default_collection(user_id: int, name: str) -> Collection:
-    c = Collection.query.filter_by(user_id=user_id, name=name, is_default=True).first()
+    c: Optional[Collection] = Collection.query.filter_by(user_id=user_id, name=name, is_default=True).first()
     if not c:
         ensure_default_collections(user_id)
         c = Collection.query.filter_by(user_id=user_id, name=name, is_default=True).first()
+    assert c is not None
     return c
 
 
-with app.app_context():
+def add_review(user: User, movie: Movie, rating: int, content: str) -> None:
+    existing: Optional[Review] = Review.query.filter_by(user_id=user.id, movie_id=movie.id).first()
+    if not existing:
+        db.session.add(
+            Review(
+                user_id=user.id,
+                movie_id=movie.id,
+                rating=rating,
+                title=None,
+                content=content,
+            )
+        )
 
+
+def add_favorite(user: User, movie: Movie) -> None:
+    existing: Optional[Favorite] = Favorite.query.filter_by(user_id=user.id, movie_id=movie.id).first()
+    if not existing:
+        db.session.add(Favorite(user_id=user.id, movie_id=movie.id))
+
+
+with app.app_context():
     admin = get_or_create_user("admin", "admin@site.com", "admin123", role="admin")
     u1 = get_or_create_user("niya", "niya@test.com", "pass123", role="user")
     u2 = get_or_create_user("maria", "maria@test.com", "pass123", role="user")
@@ -174,54 +197,31 @@ with app.app_context():
 
     db.session.commit()
 
-    all_movies = Movie.query.all()
+    inception = Movie.query.filter_by(title="Inception").first()
+    matrix = Movie.query.filter_by(title="The Matrix").first()
+    godfather = Movie.query.filter_by(title="The Godfather").first()
 
-    def add_review(user: User, movie: Movie, rating: int, content: str) -> None:
-        existing = Review.query.filter_by(user_id=user.id, movie_id=movie.id).first()
-        if not existing:
-            db.session.add(
-                Review(
-                    user_id=user.id,
-                    movie_id=movie.id,
-                    rating=rating,
-                    title=None,
-                    content=content,
-                )
-            )
+    assert inception is not None
+    assert matrix is not None
+    assert godfather is not None
 
-    add_review(u1, Movie.query.filter_by(title="Inception").first(), 5, "Amazing concept and visuals.")
-    add_review(u2, Movie.query.filter_by(title="Inception").first(), 4, "Great movie, a bit confusing at times.")
-    add_review(u1, Movie.query.filter_by(title="The Matrix").first(), 5, "Classic. Still holds up.")
-    add_review(u2, Movie.query.filter_by(title="The Godfather").first(), 5, "One of the best movies ever.")
-    add_review(u1, Movie.query.filter_by(title="Fight Club").first(), 4, "Dark and clever.")
-
+    add_review(u1, inception, 5, "Amazing concept and visuals.")
+    add_review(u2, inception, 4, "Great movie, a bit confusing at times.")
+    add_review(u1, matrix, 5, "Classic. Still holds up.")
+    add_review(u2, godfather, 5, "One of the best movies ever.")
     db.session.commit()
 
-    def add_favorite(user: User, movie: Movie) -> None:
-        existing = Favorite.query.filter_by(user_id=user.id, movie_id=movie.id).first()
-        if not existing:
-            db.session.add(Favorite(user_id=user.id, movie_id=movie.id))
-
-    add_favorite(u1, Movie.query.filter_by(title="Inception").first())
-    add_favorite(u1, Movie.query.filter_by(title="Interstellar").first())
-    add_favorite(u2, Movie.query.filter_by(title="The Godfather").first())
-
+    add_favorite(u1, inception)
+    add_favorite(u1, matrix)
+    add_favorite(u2, godfather)
     db.session.commit()
 
     to_watch_u1 = get_default_collection(u1.id, "To watch")
     watching_u1 = get_default_collection(u1.id, "Watching")
     watched_u1 = get_default_collection(u1.id, "Watched")
 
-    inception = Movie.query.filter_by(title="Inception").first()
-    interstellar = Movie.query.filter_by(title="Interstellar").first()
-    matrix = Movie.query.filter_by(title="The Matrix").first()
-
     if inception not in watched_u1.movies:
         watched_u1.movies.append(inception)
-
-    if interstellar not in to_watch_u1.movies:
-        to_watch_u1.movies.append(interstellar)
-
     if matrix not in watching_u1.movies:
         watching_u1.movies.append(matrix)
 
