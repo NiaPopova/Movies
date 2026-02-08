@@ -2,10 +2,10 @@
 {% block title %}Режисьори{% endblock %}
 
 {% block content %}
-<h1>Режисьори</h1>
+<h1>Directors</h1>
 
 <form method="get">
-  <input name="q" placeholder="Търси режисьор..." value="{{ q or '' }}">
+  <input name="q" placeholder="Search director" value="{{ q or '' }}">
   <button type="submit">Търси</button>
 </form>
 
@@ -15,7 +15,7 @@
       <a href="{{ url_for('director_detail', director_id=d.id) }}"><b>{{ d.name }}</b></a>
     </li>
   {% else %}
-    <li>Няма режисьори.</li>
+    <li>No directors found.</li>
   {% endfor %}
 </ul>
 {% endblock %}

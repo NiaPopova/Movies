@@ -4,7 +4,7 @@
 {% block content %}
 <h1>{{ director.name }}</h1>
 
-<h2>Филми</h2>
+<h2>Movies</h2>
 <ul class="list">
   {% for m in movies %}
     <li>
@@ -12,7 +12,7 @@
       {% if m.year %}<span class="badge">{{ m.year }}</span>{% endif %}
     </li>
   {% else %}
-    <li>Няма добавени филми за този режисьор.</li>
+    <li>No directors yet.</li>
   {% endfor %}
 </ul>
 {% endblock %}
