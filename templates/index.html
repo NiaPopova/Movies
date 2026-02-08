@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}OUR MOVIES{% endblock %}
+
+{% block content %}
+<h1>Movies</h1>
+
+<form method="get">
+  <input name="q" placeholder="Търси по заглавие..." value="{{ q or '' }}">
+  <input name="genre" placeholder="Жанр..." value="{{ genre or '' }}">
+  <input name="director" placeholder="Режисьор..." value="{{ director or '' }}">
+  <button type="submit">Търси</button>
+</form>
+
+
+<ul class="list">
+  {% for m in movies %}
+    <li>
+      <a href="{{ url_for('movie_detail', movie_id=m.id) }}"><b>{{ m.title }}</b></a>
+      {% if m.year %}<span class="badge">{{ m.year }}</span>{% endif %}
+    </li>
+  {% else %}
+    <li>No movies yet</li>
+  {% endfor %}
+</ul>
+{% endblock %}

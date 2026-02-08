@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<h1>Profile: {{ current_user.username }}</h1>
+<p><small>{{ current_user.email }}</small></p>
+
+<hr>
+<h2>Collections</h2>
+
+<ul class="list">
+  {% for c in collections %}
+    <li>
+      <a href="{{ url_for('collection_detail', collection_id=c.id) }}"><b>{{ c.name }}</b></a>
+      {% if c.is_default %}<span class="badge">default</span>{% endif %}
+
+      {% if not c.is_default %}
+        <form method="post" action="{{ url_for('rename_collection', collection_id=c.id) }}">
+          <input name="name" placeholder="New name" required>
+          <button type="submit">Rename</button>
+        </form>
+
+        <form method="post" action="{{ url_for('delete_collection', collection_id=c.id) }}">
+          <button type="submit">Delete</button>
+        </form>
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>
+
+<h3>Create collection</h3>
+<form method="post" action="{{ url_for('create_collection') }}">
+  <input name="name" placeholder="Collection name" required>
+  <button type="submit">Create</button>
+</form>
+
+<hr>
+<h2>My reviews</h2>
+<ul class="list">
+  {% for r in my_reviews %}
+    <li>
+      <a href="{{ url_for('movie_detail', movie_id=r.movie.id) }}"><b>{{ r.movie.title }}</b></a>
+      <span class="badge">{{ r.rating }}/5</span>
+      <p>{{ r.content or "" }}</p>
+    </li>
+  {% else %}
+    <li>No reviews yet.</li>
+  {% endfor %}
+</ul>
+
+<hr>
+<h2>Favorites</h2>
+<ul class="list">
+  {% for f in my_favorites %}
+    <li>
+      <a href="{{ url_for('movie_detail', movie_id=f.movie.id) }}"><b>{{ f.movie.title }}</b></a>
+      {% if f.movie.year %}<span class="badge">{{ f.movie.year }}</span>{% endif %}
+    </li>
+  {% else %}
+    <li>No favorites yet.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

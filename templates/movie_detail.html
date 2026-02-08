@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ movie.title }}{% endblock %}
+
+{% block content %}
+<h1>{{ movie.title }}{% if movie.year %} <span class="badge">{{ movie.year }}</span>{% endif %}</h1>
+
+{% if movie.director %}
+  <p><b>Director:</b>
+    <a href="{{ url_for('director_detail', director_id=movie.director.id) }}">{{ movie.director.name }}</a>
+  </p>
+{% endif %}
+
+<div class="grid-2">
+  <div>
+    {% if movie.poster_url %}
+      <img class="poster" src="{{ movie.poster_url }}" alt="poster">
+    {% endif %}
+  </div>
+
+  <div>
+    <p>{{ movie.description or "" }}</p>
+
+    {% if movie.genres %}
+      <p><b>Genres:</b><br>
+        {% for g in movie.genres %}
+          <span class="badge">{{ g.name }}</span>
+        {% endfor %}
+      </p>
+    {% endif %}
+
+    {% if current_user.is_authenticated %}
+      {% set is_fav = false %}
+      {% for f in movie.favorites %}
+        {% if f.user_id == current_user.id %}
+          {% set is_fav = true %}
+        {% endif %}
+      {% endfor %}
+
+      <div class="actions">
+        {% if is_fav %}
+          <form method="post" action="{{ url_for('unfavorite_movie', movie_id=movie.id) }}">
+            <button type="submit">Remove favorite</button>
+          </form>
+        {% else %}
+          <form method="post" action="{{ url_for('favorite_movie', movie_id=movie.id) }}">
+            <button type="submit">Add favorite</button>
+          </form>
+        {% endif %}
+      </div>
+
+      <h3>Add to collection</h3>
+      <form method="post" action="{{ url_for('add_to_collection_from_movie', movie_id=movie.id) }}">
+        <select name="collection_id" required>
+          {% for c in user_collections %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Add</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+<hr>
+
+<h2>Reviews</h2>
+
+{% if avg is not none %}
+  <p><b>Average rating:</b> <span class="badge">{{ avg }}</span></p>
+{% endif %}
+
+<ul class="list">
+  {% for r in movie.reviews %}
+    <li>
+      <b>{{ r.rating }}/5</b>
+      {% if r.title %} — {{ r.title }}{% endif %}
+      <br>
+      <small>by {{ r.user.username }}</small>
+
+      <p>{{ r.content or "" }}</p>
+
+      {% if current_user.is_authenticated and (r.user_id == current_user.id or current_user.role == 'admin') %}
+        <form method="post" action="{{ url_for('delete_review', review_id=r.id) }}">
+          <button type="submit">Delete review</button>
+        </form>
+      {% endif %}
+    </li>
+  {% else %}
+    <li>No reviews yet.</li>
+  {% endfor %}
+</ul>
+
+{% if current_user.is_authenticated %}
+  <hr>
+  <h3>Add / Update review</h3>
+
+  <form method="post" action="{{ url_for('add_review', movie_id=movie.id) }}">
+    <div>
+      <label>Rating (1–5)</label>
+      <input type="number" name="rating" min="1" max="5" required>
+    </div>
+
+    <div>
+      <label>Title (optional)</label>
+      <input type="text" name="title">
+    </div>
+
+    <div>
+      <label>Comment (optional)</label>
+      <textarea name="content" rows="6"></textarea>
+    </div>
+
+    <button type="submit">Save</button>
+  </form>
+{% else %}
+  <p><a href="{{ url_for('login') }}">Login</a> to add a review.</p>
+{% endif %}
+{% endblock %}

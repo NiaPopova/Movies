@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ c.name }}{% endblock %}
+
+{% block content %}
+<h1>{{ c.name }}</h1>
+
+<ul class="list">
+  {% for m in c.movies %}
+    <li class="actions">
+      <a href="{{ url_for('movie_detail', movie_id=m.id) }}"><b>{{ m.title }}</b></a>
+      {% if m.year %}<span class="badge">{{ m.year }}</span>{% endif %}
+
+      <form method="post" action="{{ url_for('remove_movie_from_collection', collection_id=c.id, movie_id=m.id) }}">
+        <button type="submit">Remove</button>
+      </form>
+    </li>
+  {% else %}
+    <li>No movies yet.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

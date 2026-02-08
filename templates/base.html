@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}OUR MOVIES{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <div class="nav nav-3">
+  <div class="nav-side">
+    <a href="{{ url_for('index') }}">Home</a>
+    <a href="{{ url_for('add_movie') }}">Add movie</a>
+  </div>
+
+  <div class="nav-center">
+    <a class="brand" href="{{ url_for('index') }}">OUR MOVIES</a>
+  </div>
+
+  <div class="nav-side nav-right">
+    {% if current_user.is_authenticated %}
+      <a href="{{ url_for('profile') }}">Profile</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+      <a href="{{ url_for('register') }}">Register</a>
+      <a href="{{ url_for('login') }}">Login</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="tabs">
+  <a class="tab {% if request.endpoint == 'index' %}active{% endif %}"
+     href="{{ url_for('index') }}">Movies</a>
+
+  <a class="tab {% if request.endpoint in ['directors_list', 'director_detail'] %}active{% endif %}"
+     href="{{ url_for('directors_list') }}">Directors</a>
+</div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="card">
+          {% for msg in messages %}
+            <div class="flash">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="card">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</body>
+</html>
