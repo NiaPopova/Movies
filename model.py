@@ -91,10 +91,9 @@ class Review(db.Model):
     __tablename__ = "reviews"
 
     id = db.Column(db.Integer, primary_key=True)
-    rating = db.Column(db.Integer, nullable=False)  # 1–5
+    rating = db.Column(db.Integer, nullable=False)
     title = db.Column(db.String(120), nullable=True)
 
-    # по изисквания: коментарът може да е празен
     content = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
