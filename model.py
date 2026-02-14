@@ -59,7 +59,6 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
 
-    # роли: "user" или "admin"
     role = db.Column(db.String(20), nullable=False, default="user", index=True)
 
     reviews = db.relationship("Review", back_populates="user", cascade="all, delete-orphan")
